@@ -8,6 +8,7 @@ end
 close all; %close all figure windows
 clearvars; %clear all variables
 p=struct();
+
 %% START define parameters
 
 %testing parameters: CHECK THESE!
@@ -25,7 +26,8 @@ p.stimuli ={'ANKLE','BLUE','BOOT','CAPE','CLAM',...
             'SHOE','SIGHT','SLEIGH','SUIT','TAXI',...
             'THIGH','THINK','TIE','WHITE','YACHT'}
 p.nstimuli = length(p.stimuli)
-p.targetstimuli = {'BED','CHAIR','DESK','COT','COUCH','CRIB','FUTON','SOFA','STOOL','TABLE'}
+p.targetstimuli = {'BED','CHAIR','DESK','COT','COUCH',...
+                   'CRIB','FUTON','SOFA','STOOL','TABLE'}
 
 p.nblocks = 8; %number of blocks we want
 p.stimrepeatsperblock = 4; %how many repeats of each stimulus per block
@@ -76,6 +78,9 @@ p.csvdatafilename = sprintf('sub-%02i_task-words_events.csv',p.subjectnr);
 if p.isrealexperiment
     if exist(p.datafilename,'file')
         error(['ERROR: ' p.datafilename ' exists. Move (or delete) this file or use a different subject number']);
+    end
+    if exist(p.csvdatafilename,'file')
+        error(['ERROR: ' p.csvdatafilename ' exists. Move (or delete) this file or use a different subject number']);
     end
 end
 
@@ -154,7 +159,7 @@ end
 
 %% setup abort function
 abort = ['sca;Priority(0);ListenChar(0);ShowCursor();fprintf(''\n\nABORTING...\n'');save(''aborted.mat'');sca;'...
-    'error(struct(''stack'',struct(''file'',''runexperiment_hyperalign'',''name'',''runexperiment_hyperalign'',''line'',0),'...
+    'error(struct(''stack'',struct(''file'',''runexperiment'',''name'',''runexperiment'',''line'',0),'...
     '''message'',''############################## EXPERIMENT ABORTED BY USER ##############################''));'];
 
 %% disable keyboard input
@@ -167,9 +172,9 @@ disp('    +------------------------+')
 disp('    | Experiment parameters: |')
 disp('    +------------------------+')
 disp(p);
-disp('If this is correct, press return to start.')
+disp('If this is correct, press <SPACE> to start.')
 [~, keycode, ~] = KbWait(); %wait for a keypress
-if ~keycode(KbName('Return'));eval(abort);end % check for return key
+if ~keycode(KbName('space'));eval(abort);end % check for return key
 
 %% open window, and wait for the photodiode setup
 p.screennumber=max(Screen('Screens'));
@@ -202,13 +207,13 @@ drawfixationgreen = @() Screen('DrawLines', p.window, p.fixationlocation,2,[0 20
 %calibrate
 i = 1;keycode=[];
 
-fprintf('\nSTARTING CALIBRATE\n')
+fprintf('\nSTARTING CALIBRATION\n')
 
 %start playback
 s=0;
 while isempty(keycode) || ~keycode(KbName('space'))
     i=i+1;
-    DrawFormattedText(p.window, 'Calibration\n\n<SPACE> to continue or <ESCAPE> to abort', 'center', 100, p.white);
+    DrawFormattedText(p.window, 'CALIBRATION\n\n<SPACE> to continue or <ESCAPE> to abort', 'center', 100, p.white);
     if mod(i,2)
         drawphotoflashrect()
         if p.isMEGexperiment
@@ -270,6 +275,7 @@ for eventnr=1:nevents
     if eventlist.blocknumber(eventnr)>currentblock
         currentblock = eventlist.blocknumber(eventnr)
         writetable(eventlist,p.csvdatafilename)
+        save(p.datafilename,'p');
 
         disp('start of block')
         % Wait for key release
@@ -302,12 +308,12 @@ for eventnr=1:nevents
     Screen('Flip', p.window, time_stimon + resptime - p.halfrefresh)
 end
 % finish up 
-
+writetable(eventlist,p.csvdatafilename)
+save(p.datafilename,'p','eventlist');
 DrawFormattedText(p.window, sprintf('Experiment complete!\n\nHits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\nRelax and wait for experimenter...\n\nExperimenter: press <space> to exit',blocknumber,hits,hitsp,misses,fa),'center', 'center', p.white)
 Screen('Flip', p.window);
-save(p.datafilename,'p','triggerdata','imagedata','stimuli');
 while ~keycode(KbName('space'))
     [~, keycode, ~] = KbWait();
 end
-
-writetable(eventlist,p.csvdatafilename)
+Priority(0);ListenChar(0);ShowCursor();
+Screen('CloseAll');
