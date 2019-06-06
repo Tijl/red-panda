@@ -51,10 +51,9 @@ p.estimatedexperimentduration_minutes = p.nblocks * p.averageblockduration_minut
 p.triggerstimulus=178; %stimulus is ON trigger
 
 %display parameters
-p.stimfontsize=22; %stimulus font size onscreen
 p.fixationsize=20; %diameter of fixation cross (pixels)
 p.backgroundcolor=[127 127 127]; %backround (gray)
-p.fontsize=22; %font size for instructions
+p.fontsize=22; %font size for all the things
 p.windowsize=[0 0 800 600]; %windowsize if not running fullscreen
 
 %photodiode
