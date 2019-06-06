@@ -37,7 +37,7 @@ p.targetsperblock = [8 10]; %how many targets per block
 %timing parameters
 p.blockstartduration= 1; %time before first stimulus in a block (secs);
 p.prestimblank = 0.200; % prestim blank duration (secs);
-p.stimulusduration = 0.100; %stimulus duration (secs);
+p.stimulusduration = 0.200; %stimulus duration (secs);
 p.responseduration = [1 1.2]; %variable response duration from stimulus onset (secs);
 p.halfrefresh = .5/60; %to subtract from fliptimes
 
