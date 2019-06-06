@@ -30,8 +30,8 @@ p.targetstimuli = {'BED','CHAIR','DESK','COT','COUCH',...
                    'CRIB','FUTON','SOFA','STOOL','TABLE'};
 
 % repetition numbers
-p.nblocks = 1; %number of blocks we want
-p.stimrepeatsperblock = 1; %how many repeats of each stimulus per block
+p.nblocks = 10; %number of blocks we want
+p.stimrepeatsperblock = 4; %how many repeats of each stimulus per block
 p.targetsperblock = [8 10]; %how many targets per block
 
 %timing parameters
@@ -286,10 +286,10 @@ currentblock = 0;
 for eventnr=1:nevents
     if eventlist.blocknumber(eventnr)>currentblock
         currentblock = eventlist.blocknumber(eventnr);
+        %save temp data
         writetable(eventlist,p.csvdatafilename)
         save(p.datafilename,'p');
 
-        disp('start of block')
         % Wait for key release
         while KbCheck()
             WaitSecs(0.01);
