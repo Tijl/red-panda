@@ -3,7 +3,7 @@
 
 %% set up psychtoolbox if needed (should only be needed for testing)
 if isempty(which('PsychtoolboxVersion.m'))
-    addpath(genpath('~/PHD/Matlab/Psychtoolbox/'))
+    addpath(genpath('~/PHD/MatlabToolboxes/Psychtoolbox/'))
 end
 close all; %close all figure windows
 clearvars; %clear all variables
@@ -14,8 +14,8 @@ p=struct();
 %testing parameters: CHECK THESE!
 p.isrealexperiment = 0; %should only be 0 for testing; skips overwrite checks and doesn't ask for subject nr
 p.fullscreen = 0; %should only be 0 for testing; if 0 it does not create a fullscreen window
-p.isMEGexperiment = 1; %should only be 0 for testing; does not send actual triggers
-p.synctest = 1; %should only be 0 for testing; skips synchronisation tests
+p.isMEGexperiment = 0; %should only be 0 for testing; does not send actual triggers
+p.synctest = 0; %should only be 0 for testing; skips synchronisation tests
 
 % stimulus parameters
 p.stimuli ={'ANKLE','BLUE','BOOT','CAPE','CLAM',...
@@ -24,20 +24,28 @@ p.stimuli ={'ANKLE','BLUE','BOOT','CAPE','CLAM',...
             'KAYAK','KHAKI','KNEE','LAUGH','LYNX',...
             'NEWT','PEACH','PEAR','PIE','SEW',...
             'SHOE','SIGHT','SLEIGH','SUIT','TAXI',...
-            'THIGH','THINK','TIE','WHITE','YACHT'}
-p.nstimuli = length(p.stimuli)
+            'THIGH','THINK','TIE','WHITE','YACHT'};
+p.nstimuli = length(p.stimuli);
 p.targetstimuli = {'BED','CHAIR','DESK','COT','COUCH',...
-                   'CRIB','FUTON','SOFA','STOOL','TABLE'}
+                   'CRIB','FUTON','SOFA','STOOL','TABLE'};
 
-p.nblocks = 8; %number of blocks we want
-p.stimrepeatsperblock = 4; %how many repeats of each stimulus per block
-p.targetsperblock = [2 5]; %how many targets per block
+% repetition numbers
+p.nblocks = 1; %number of blocks we want
+p.stimrepeatsperblock = 1; %how many repeats of each stimulus per block
+p.targetsperblock = [8 10]; %how many targets per block
 
 %timing parameters
 p.blockstartduration= 1; %time before first stimulus in a block (secs);
+p.prestimblank = 0.200; % prestim blank duration (secs);
 p.stimulusduration = 0.100; %stimulus duration (secs);
 p.responseduration = [1 1.2]; %variable response duration from stimulus onset (secs);
 p.halfrefresh = .5/60; %to subtract from fliptimes
+
+%guesstimates
+p.trialsperblock = p.stimrepeatsperblock * p.nstimuli + mean(p.targetsperblock);
+p.averagetrialduration_seconds = p.prestimblank + mean(p.responseduration);
+p.averageblockduration_minutes = p.trialsperblock * p.averagetrialduration_seconds/60;
+p.estimatedexperimentduration_minutes = p.nblocks * p.averageblockduration_minutes;
 
 %trigger parameters
 p.triggerstimulus=178; %stimulus is ON trigger
@@ -124,13 +132,14 @@ p.experimentcode = fileread('runexperiment.m');
 
 eventlist = table();
 allstimuli = [p.stimuli p.targetstimuli];
+
 %% create trialstructure for all blocks
 for blocknr = 1:p.nblocks
-    sequence = []
+    sequence = [];
     for stimrep = 1:p.stimrepeatsperblock
-        stimorder = [] %find a stimulus order so that the last 5 stims do not overlap
+        stimorder = []; %find a stimulus order so that the last 5 stims do not overlap
         while isempty(stimorder) || stimrep>1 && ~isempty(intersect(sequence(end-5:end),stimorder(1:5)))
-            stimorder = randsample(1:length(p.stimuli),p.nstimuli)
+            stimorder = randsample(1:length(p.stimuli),p.nstimuli);
         end
         sequence = [sequence;stimorder'];
     end
@@ -138,8 +147,9 @@ for blocknr = 1:p.nblocks
     nt = randi(p.targetsperblock);
     istarget = false(length(sequence)+nt,1);
     targetlocs = round(linspace(1,length(istarget),nt+2))';
+    d = floor(min(diff(targetlocs))/2)-1;
     targetlocs = targetlocs(2:end-1);
-    targetlocs = targetlocs + randi([-2,2],nt,1); %jitter
+    targetlocs = targetlocs + randi([-d, d],nt,1); %jitter
     istarget(targetlocs) = true;
     fullsequence = zeros(size(istarget));
     fullsequence(~istarget) = sequence;
@@ -177,19 +187,20 @@ disp('If this is correct, press <SPACE> to start.')
 if ~keycode(KbName('space'));eval(abort);end % check for return key
 
 %% open window, and wait for the photodiode setup
-p.screennumber=max(Screen('Screens'));
+p.screennumber=min (Screen('Screens'));
 if p.screennumber>1 && p.isrealexperiment
     ListenChar(0);error('Found too many screens! Exit matlab, setup mirrored-display mode, and try again')
 end
 p.black=BlackIndex(p.screennumber);
 p.gray=GrayIndex(p.screennumber);
 p.white=WhiteIndex(p.screennumber);
-if p.fullscreen;
+if p.fullscreen
     p.windowsize=[];
 elseif ismac && max(Screen('Screens',1))==2
     p.windowsize=[];
 end
 [p.window, p.windowrect]=Screen('OpenWindow',p.screennumber, p.backgroundcolor,p.windowsize,32,2);
+Screen('TextFont',p.window, 'Arial');
 Screen('TextSize',p.window,p.fontsize);
 Screen('BlendFunction',p.window,GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
@@ -199,7 +210,7 @@ drawphotoflashrect = @() Screen('FillRect',p.window,p.white,p.photoflashrect);
 
 %fixation fuction
 p.fixationlocation = .5*p.windowrect([3 3 3 3;4 4 4 4])+.5*[-p.fixationsize p.fixationsize 0 0;0 0 -p.fixationsize p.fixationsize];
-drawfixation = @() Screen('DrawLines', p.window, p.fixationlocation,2,p.black);
+drawfixation = @() Screen('DrawLines', p.window, p.fixationlocation,2,p.white);
 drawfixationred = @() Screen('DrawLines', p.window, p.fixationlocation,2,[200 0 0]);
 drawfixationgreen = @() Screen('DrawLines', p.window, p.fixationlocation,2,[0 200 0]);
 
@@ -222,13 +233,10 @@ while isempty(keycode) || ~keycode(KbName('space'))
     elseif p.isMEGexperiment
         io32(p.ioObj,p.address,0);
     end
-    if mod(i,3)
+    if mod(i,2)
         s=1+mod(s,p.nstimuli); %next stim
-        texture = Screen('MakeTexture', p.window, stimuli(s).rawalpha);
-        Screen('DrawTexture',p.window,texture,[],CenterRect([0 0 p.stimulussize],p.windowrect));
-        
+        DrawFormattedText(p.window, p.stimuli{s}, 'center', 'center');
         Screen('Flip',p.window);
-        Screen('Close',texture)
     else
         drawfixation();
         Screen('Flip',p.window);
@@ -250,67 +258,135 @@ if p.isMEGexperiment
         io32(p.ioObj,p.address,0);
         triggerstatus=io32(p.ioObj,p.address);
     end
+else
+    triggerstatus=0;
 end
 
 %% ready to go
 % Wait for key release
-while KbCheck();WaitSecs(0.01);end
-    keycode=[];
-    DrawFormattedText(p.window, 'Calibration Complete\n\nStart the MEG acquisition\n\n<SPACE> to start the experiment or <ESCAPE> to abort', 'center', 'center', p.white);
-    Screen('Flip',p.window);
-    while isempty(keycode) || ~keycode(KbName('space'))
-        [~, keycode, ~] = KbWait();
-        if keycode(KbName('escape'));eval(abort);end
-    end
+while KbCheck();
+    WaitSecs(0.01);
+end
+keycode=[];
+DrawFormattedText(p.window, 'Calibration Complete\n\nStart the MEG acquisition\n\n<SPACE> to start the experiment or <ESCAPE> to abort', 'center', 'center', p.white);
+Screen('Flip',p.window);
+while isempty(keycode) || ~keycode(KbName('space'))
+    [~, keycode, ~] = KbWait();
+    if keycode(KbName('escape'));eval(abort);end
+end
     
-    %% we're go
-    p.time_experiment_start = Screen('Flip', p.window); %record experiment start time
+%% we're go - record start time 
+p.time_experiment_start = Screen('Flip', p.window); %record experiment start time
     
 
 %% start experiment loop
 nevents = size(eventlist,1);
 nblocks = eventlist.blocknumber(end);
-currentblock = 0
+currentblock = 0;
 for eventnr=1:nevents
     if eventlist.blocknumber(eventnr)>currentblock
-        currentblock = eventlist.blocknumber(eventnr)
+        currentblock = eventlist.blocknumber(eventnr);
         writetable(eventlist,p.csvdatafilename)
         save(p.datafilename,'p');
 
         disp('start of block')
         % Wait for key release
-        while KbCheck();WaitSecs(0.01);end
-            %instructions
-            DrawFormattedText(p.window, sprintf('Block %i\n\nPress the button for furniture words\n\n<Press any button> to start',blocknumber), 'center', 'center', p.white);
-            Screen('Flip', p.window);
-            %wait for any keypress to start blockloop
-            [~, keycode] = KbWait();
-            if keycode(KbName('escape'));eval(abort);end
-            drawfixation();
-            Screen('Flip', p.window);
-            WaitSecs(p.blockstartduration);
+        while KbCheck()
+            WaitSecs(0.01);
+        end
+        %instructions
+        if currentblock == 1
+            DrawFormattedText(p.window, sprintf('Block %i\n\nPress the button for furniture words\n\n<Press any button> to start',currentblock), 'center', 'center', p.white);
+        else
+            idx = eventlist.blocknumber==(currentblock-1);
+            hits = sum(eventlist.istarget(idx) & eventlist.response(idx));
+            hitrate = 100*mean(eventlist.istarget(idx) & eventlist.response(idx));
+            misses = sum(eventlist.istarget(idx) & ~eventlist.response(idx));
+            fa = sum(~eventlist.istarget(idx) & eventlist.response(idx));
+            DrawFormattedText(p.window, sprintf('Hits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\n\nBlock %i\n\n\nPress the button for furniture words\n\n<Press any button> to start',hits, hitrate, misses, fa, currentblock), 'center', 'center', p.white);
+        end
+        Screen('Flip', p.window);
+        %wait for any keypress to start blockloop
+        [~, keycode] = KbWait();
+        if keycode(KbName('escape'));eval(abort);end
+        drawfixation();
+        time_blockstart = Screen('Flip', p.window);
+        Screen('Flip', p.window, time_blockstart + p.blockstartduration - p.halfrefresh);
+    end
+    %wait for stimon trigger
+    while triggerstatus~=p.triggerstimulus-128
+        triggerstart = Screen('Flip', p.window);
+        if p.isMEGexperiment
+            io32(p.ioObj,p.address,p.triggerstimulus-128);
+            triggerstatus=io32(p.ioObj,p.address);
+        else
+            triggerstatus=p.triggerstimulus-128;
         end
     end
-        
     %prepare stim
     stim = eventlist.stim{eventnr};
     istarget = eventlist.istarget(eventnr);
-    texture = Screen('DrawText', p.window, stimuli(stim).rawalpha);
-    drawphotoflashrect()
-    time_stimon = Screen('Flip',p.window)
-    drawfixation()
-    time_stimoff = Screen('Flip', p.window, time_stimon + p.stimulusduration - p.halfrefresh)
-
-    resptime = min(p.responseduration) + rand()*diff(p.responseduration);
+    DrawFormattedText(p.window, stim, 'center', 'center');
+    drawphotoflashrect();
+    time_stimon = Screen('Flip',p.window, triggerstart + p.prestimblank - p.halfrefresh);
+    if p.isMEGexperiment
+        io32(p.ioObj,p.address,p.triggerstimulus-128);
+        triggerstatus=io32(p.ioObj,p.address);
+    else
+        triggerstatus=p.triggerstimulus-128;
+    end
+    drawfixation();
+    time_stimoff = Screen('Flip', p.window, time_stimon + p.stimulusduration - p.halfrefresh);
+    %wait for off trigger
+    while triggerstatus
+        if p.isMEGexperiment
+            io32(p.ioObj,p.address,0);
+            triggerstatus=io32(p.ioObj,p.address);
+        else
+            triggerstatus=0;
+        end
+    end
+    responsetime = min(p.responseduration) + rand()*diff(p.responseduration);
     %check for reponse
-
-    drawfixation()
-    Screen('Flip', p.window, time_stimon + resptime - p.halfrefresh)
+    [response,RT]=deal(0);
+    while GetSecs()-time_stimon < responsetime
+        [keydown, secs, keycode] = KbCheck();
+        if keydown
+            if ~response && any(keycode(p.responsekeys))
+                response = 1;
+                RT = secs-time_stimon;
+                if istarget
+                    drawfixationgreen();
+                else
+                    drawfixationred();
+                end
+                Screen('Flip', p.window);
+            elseif keycode(KbName('escape')) %emergency exit
+                eval(abort);
+            end
+        end
+    end
+    correct = response==istarget;
+    %update the eventlist with results
+    eventlist.response(eventnr) = response;
+    eventlist.RT(eventnr) = RT;
+    eventlist.correct(eventnr) = correct;
+    eventlist.time_stimon(eventnr) = time_stimon-p.time_experiment_start;
+    eventlist.time_stimoff(eventnr) = time_stimoff-p.time_experiment_start;
+    eventlist.stimdur(eventnr) = time_stimoff-time_stimon;
+    %prep next trial
+    Screen('Flip', p.window);
 end
 % finish up 
 writetable(eventlist,p.csvdatafilename)
 save(p.datafilename,'p','eventlist');
-DrawFormattedText(p.window, sprintf('Experiment complete!\n\nHits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\nRelax and wait for experimenter...\n\nExperimenter: press <space> to exit',blocknumber,hits,hitsp,misses,fa),'center', 'center', p.white)
+
+hits = sum(eventlist.istarget & eventlist.response);
+hitrate = 100*mean(eventlist.istarget & eventlist.response);
+misses = sum(eventlist.istarget & ~eventlist.response);
+fa = sum(~eventlist.istarget & eventlist.response);
+DrawFormattedText(p.window, sprintf('Hits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\n\nExperiment complete!\n\nRelax and wait for experimenter...\n\nExperimenter: press <space> to exit',hits, hitrate, misses, fa), 'center', 'center', p.white);
+
 Screen('Flip', p.window);
 while ~keycode(KbName('space'))
     [~, keycode, ~] = KbWait();
