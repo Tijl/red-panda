@@ -12,10 +12,10 @@ p=struct();
 %% START define parameters
 
 %testing parameters: CHECK THESE!
-p.isrealexperiment = 0; %should only be 0 for testing; skips overwrite checks and doesn't ask for subject nr
-p.fullscreen = 0; %should only be 0 for testing; if 0 it does not create a fullscreen window
-p.isMEGexperiment = 0; %should only be 0 for testing; does not send actual triggers
-p.synctest = 0; %should only be 0 for testing; skips synchronisation tests
+p.isrealexperiment = 1; %should only be 0 for testing; skips overwrite checks and doesn't ask for subject nr
+p.fullscreen = 1; %should only be 0 for testing; if 0 it does not create a fullscreen window
+p.isMEGexperiment = 1; %should only be 0 for testing; does not send actual triggers
+p.synctest = 1; %should only be 0 for testing; skips synchronisation tests
 
 % stimulus parameters
 p.stimuli ={'ANKLE','BLUE','BOOT','CAPE','CLAM',...
@@ -53,7 +53,7 @@ p.triggerstimulus=178; %stimulus is ON trigger
 %display parameters
 p.fixationsize=20; %diameter of fixation cross (pixels)
 p.backgroundcolor=[127 127 127]; %backround (gray)
-p.fontsize=22; %font size for all the things
+p.fontsize=50; %font size for all the things
 p.windowsize=[0 0 800 600]; %windowsize if not running fullscreen
 
 %photodiode
@@ -92,8 +92,8 @@ if p.isrealexperiment
 end
 
 %This should only be used to test/debug. CHECK THIS!!
+Screen('Preference', 'SkipSyncTests', ~p.synctest);
 if ~p.synctest
-    Screen('Preference', 'SkipSyncTests', 1);
     disp('    +-------------------------------------------------+')
     disp('    | WARNING: p.synctest is set to 0                 |')
     disp('    | If this is a MEG experiment, p.synctest to 1    |')
@@ -105,20 +105,20 @@ p.randomseed = rng(p.subjectnr);
 
 %% open i/o port
 if p.isMEGexperiment
-    %create io32 interface object
+    %create io64 interface object
     try
-        p.ioObj = io32;
+        p.ioObj = io64;
         % check the port status
-        status = io32(p.ioObj);
+        status = io64(p.ioObj);
     catch e
         status = 1;
-        disp(['Failed to open io32: ' e.message])
+        disp(['Failed to open io64: ' e.message])
     end
 else
     status = 1;
 end
 if status == 0
-    p.address = hex2dec('2020'); %stim2
+    p.address = hex2dec('DFB8'); %stim2
     %p.address = hex2dec('D020'); %stim1
     display(['Functioning parallel port opened at: ' num2str(p.address)])
 else
@@ -177,6 +177,9 @@ KbName('UnifyKeyNames') %cause old version of psychtoolbox
 KbCheck(); % make sure kbcheck is compiled so it is always accurate on first call
 
 %% summarize parameters
+while KbCheck()
+    WaitSecs(0.01);
+end
 disp('    +------------------------+')
 disp('    | Experiment parameters: |')
 disp('    +------------------------+')
@@ -184,6 +187,7 @@ disp(p);
 disp('If this is correct, press <SPACE> to start.')
 [~, keycode, ~] = KbWait(); %wait for a keypress
 if ~keycode(KbName('space'));eval(abort);end % check for return key
+% Wait for key release
 
 %% open window, and wait for the photodiode setup
 p.screennumber=min (Screen('Screens'));
@@ -227,10 +231,10 @@ while isempty(keycode) || ~keycode(KbName('space'))
     if mod(i,2)
         drawphotoflashrect()
         if p.isMEGexperiment
-            io32(p.ioObj,p.address,p.triggerstimulus-128);
+            io64(p.ioObj,p.address,p.triggerstimulus-128);
         end
     elseif p.isMEGexperiment
-        io32(p.ioObj,p.address,0);
+        io64(p.ioObj,p.address,0);
     end
     if mod(i,2)
         s=1+mod(s,p.nstimuli); %next stim
@@ -254,8 +258,8 @@ Priority(MaxPriority(p.window));
 if p.isMEGexperiment
     triggerstatus=1;
     while triggerstatus
-        io32(p.ioObj,p.address,0);
-        triggerstatus=io32(p.ioObj,p.address);
+        io64(p.ioObj,p.address,0);
+        triggerstatus=io64(p.ioObj,p.address);
     end
 else
     triggerstatus=0;
@@ -299,7 +303,7 @@ for eventnr=1:nevents
         else
             idx = eventlist.blocknumber==(currentblock-1);
             hits = sum(eventlist.istarget(idx) & eventlist.response(idx));
-            hitrate = 100*mean(eventlist.istarget(idx) & eventlist.response(idx));
+            hitrate = 100*mean(eventlist.response(idx & eventlist.istarget));
             misses = sum(eventlist.istarget(idx) & ~eventlist.response(idx));
             fa = sum(~eventlist.istarget(idx) & eventlist.response(idx));
             DrawFormattedText(p.window, sprintf('Hits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\n\nBlock %i\n\n\nPress the button for furniture words\n\n<Press any button> to start',hits, hitrate, misses, fa, currentblock), 'center', 'center', p.white);
@@ -316,8 +320,8 @@ for eventnr=1:nevents
     while triggerstatus~=p.triggerstimulus-128
         triggerstart = Screen('Flip', p.window);
         if p.isMEGexperiment
-            io32(p.ioObj,p.address,p.triggerstimulus-128);
-            triggerstatus=io32(p.ioObj,p.address);
+            io64(p.ioObj,p.address,p.triggerstimulus-128);
+            triggerstatus=io64(p.ioObj,p.address);
         else
             triggerstatus=p.triggerstimulus-128;
         end
@@ -329,8 +333,8 @@ for eventnr=1:nevents
     drawphotoflashrect();
     time_stimon = Screen('Flip',p.window, triggerstart + p.prestimblank - p.halfrefresh);
     if p.isMEGexperiment
-        io32(p.ioObj,p.address,p.triggerstimulus-128);
-        triggerstatus=io32(p.ioObj,p.address);
+        io64(p.ioObj,p.address,p.triggerstimulus-128);
+        triggerstatus=io64(p.ioObj,p.address);
     else
         triggerstatus=p.triggerstimulus-128;
     end
@@ -339,8 +343,8 @@ for eventnr=1:nevents
     %wait for off trigger
     while triggerstatus
         if p.isMEGexperiment
-            io32(p.ioObj,p.address,0);
-            triggerstatus=io32(p.ioObj,p.address);
+            io64(p.ioObj,p.address,0);
+            triggerstatus=io64(p.ioObj,p.address);
         else
             triggerstatus=0;
         end
@@ -381,7 +385,7 @@ writetable(eventlist,p.csvdatafilename)
 save(p.datafilename,'p','eventlist');
 
 hits = sum(eventlist.istarget & eventlist.response);
-hitrate = 100*mean(eventlist.istarget & eventlist.response);
+hitrate = 100*mean(eventlist.response(eventlist.istarget));
 misses = sum(eventlist.istarget & ~eventlist.response);
 fa = sum(~eventlist.istarget & eventlist.response);
 DrawFormattedText(p.window, sprintf('Hits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\n\nExperiment complete!\n\nRelax and wait for experimenter...\n\nExperimenter: press <space> to exit',hits, hitrate, misses, fa), 'center', 'center', p.white);
@@ -392,3 +396,4 @@ while ~keycode(KbName('space'))
 end
 Priority(0);ListenChar(0);ShowCursor();
 Screen('CloseAll');
+
