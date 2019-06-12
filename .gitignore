@@ -1,6 +1,10 @@
+*~
 aborted.mat
-runexperiment.m~
 sub-00_task-words_events.csv
 sub-00_task-words_events.mat
 archive
 data
+results
+figures
+pullartemis.sh
+pushartemis.sh

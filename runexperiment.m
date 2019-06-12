@@ -303,7 +303,7 @@ for eventnr=1:nevents
         else
             idx = eventlist.blocknumber==(currentblock-1);
             hits = sum(eventlist.istarget(idx) & eventlist.response(idx));
-            hitrate = 100*mean(eventlist.response(idx & eventlist.istarget));
+            hitrate = 100*mean(eventlist.response(idx & eventlist.istarget==1));
             misses = sum(eventlist.istarget(idx) & ~eventlist.response(idx));
             fa = sum(~eventlist.istarget(idx) & eventlist.response(idx));
             DrawFormattedText(p.window, sprintf('Hits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\n\nBlock %i\n\n\nPress the button for furniture words\n\n<Press any button> to start',hits, hitrate, misses, fa, currentblock), 'center', 'center', p.white);
@@ -385,7 +385,7 @@ writetable(eventlist,p.csvdatafilename)
 save(p.datafilename,'p','eventlist');
 
 hits = sum(eventlist.istarget & eventlist.response);
-hitrate = 100*mean(eventlist.response(eventlist.istarget));
+hitrate = 100*mean(eventlist.response(eventlist.istarget==1));
 misses = sum(eventlist.istarget & ~eventlist.response);
 fa = sum(~eventlist.istarget & eventlist.response);
 DrawFormattedText(p.window, sprintf('Hits: %i (%.2f%%)\nMisses: %i\nFalse Alarms: %i\n\n\nExperiment complete!\n\nRelax and wait for experimenter...\n\nExperimenter: press <space> to exit',hits, hitrate, misses, fa), 'center', 'center', p.white);
